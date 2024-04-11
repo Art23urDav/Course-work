@@ -8,4 +8,6 @@ toc::[]
 
 == MeasurementTask
 
-ываыва
+.UML диаграмма MeasurementTask
+image::UML_Diag_MeasurementTask.jpg[]
+
