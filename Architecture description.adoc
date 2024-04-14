@@ -1,0 +1,92 @@
+:toc: macro
+
+= Описание архитектуры
+
+Условно архитектура программы разделена несколько частей: 
+
+toc::[]
+
+== MeasurementTask
+
+=== Связь MeasurementTask с Adc
+
+.UML диаграмма MeasurementTask с Adc
+image::MeasurementTask_with_Adc.jpg[]
+
+Система реального времени в классе MeasurementTask вызывает функцию Execute(), в которой расположен бесконечный цикл и уже в нем вызывается функция Update() интерфейса IUpdater, так как класс Adc наследует класс IUpdater,  вызывается функция класса adc, после "засыпает" на 3 мин и цикл повторяется. 
+
+measurementTask.h
+[source, cpp]
+----
+#ifndef MEASUREMENTTASK
+#define MEASUREMENTTASK
+
+#include "thread.hpp" //For OsWrapper::Thread
+
+class MeasurementTask : public OsWrapper::Thread<128>
+{
+  public:
+    MeasurementTask(IUpdater& adc) : _adc(adc){}
+    void Execute() override
+    {
+      for(;;)
+      {
+        _adc.Update();
+        Sleep(180000ms);
+      }
+    }
+private:
+  IUpdater& _adc;  
+};
+
+#endif //MEASUREMENTTASK
+----
+
+iUpdater.h
+[source, cpp]
+----
+#ifndef IUPDATER
+#define IUPDATER
+
+// iUpdater.h for include
+
+#include <iostream>
+
+class IUpdater
+{
+  public:
+    virtual void Update() const = 0;
+  
+};
+#endif
+----
+
+Класс adc отвечает за настройку АЦП и вызов функций классов для считывания данных с инжекторных каналов. В классе на данный момент реализован вывод строки в терминале для реализации работы MeasurementTask 
+
+adc.h
+[source, cpp]
+----
+#ifndef ADC
+#define ADC
+
+// adc.h for include
+#include "gpioaregisters.hpp"  // for GPIOA
+
+#include "adc1registers.hpp" // for ADC1
+#include "adccommonregisters.hpp" // for ADC
+
+#include "iUpdater.h"
+
+class Adc : public IUpdater
+{
+public:
+  void Update() const override
+  {
+    std::cout << "adc";
+  }
+  
+};
+#endif
+----
+
+
