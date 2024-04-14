@@ -4,10 +4,33 @@
 
 Условно архитектура программы разделена несколько частей: 
 
-toc::[]
+* MeasurementTask;
+* HeatCalculation;
+* MeasurementTemperatureResistance;
+* Adc;
+* WaterConsumption.
 
 == MeasurementTask
 
-.UML диаграмма MeasurementTask
+.UML диаграмма группы MeasurementTask
 image::UML_Diag_MeasurementTask.jpg[]
 
+== HeatCalculation
+
+.UML диаграмма группы HeatCalculation
+image::UML_Diag_HeatCalculation.jpg[]
+
+== MeasurementTemperatureResistance
+
+.UML диаграмма группы MeasurementTemperatureResistance
+image::UML_Diag_MeasurementTemperatureResistance.jpg[]
+
+== Adc
+
+.UML диаграмма группы Adc
+image::UML_Diag_Adc.jpg[]
+
+== WaterConsumption
+
+.UML диаграмма группы Adc
+image::UML_Diag_WaterConsumption.jpg[]
