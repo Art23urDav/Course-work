@@ -1,8 +1,6 @@
 #ifndef IUPDATER
 #define IUPDATER
 
-#include <iostream>
-
 class IUpdater
 {
   public:
