@@ -18,7 +18,7 @@ image::MeasurementTask_with_Adc.jpg[]
 
 Система реального времени в классе MeasurementTask вызывает функцию Execute(), в которой расположен бесконечный цикл и уже в нем вызывается функция Update() интерфейса IUpdater, так как класс Adc наследует класс IUpdater,  вызывается функция класса adc, после "засыпает" на 3 мин и цикл повторяется. 
 
-measurementTask.h
+.measurementTask.h
 [source, cpp]
 ----
 #ifndef MEASUREMENTTASK
@@ -45,7 +45,7 @@ private:
 #endif //MEASUREMENTTASK
 ----
 
-iUpdater.h
+.iUpdater.h
 [source, cpp]
 ----
 #ifndef IUPDATER
@@ -62,7 +62,7 @@ class IUpdater
 
 Класс adc отвечает за настройку АЦП и вызов функций классов для считывания данных с инжекторных каналов. В классе на данный момент реализован вывод строки в терминале для реализации работы MeasurementTask 
 
-adc.h
+.adc.h
 [source, cpp]
 ----
 #ifndef ADC
@@ -83,6 +83,83 @@ public:
 #endif
 ----
 
+== Adc
+
+.UML диаграмма группы Adc
+image::UML_Diag_Adc.jpg[]
+
+Функция *_Update_* класса *Adc* который запускает работу АЦП и считывает данные с инжекторных каналов, далее вызывается функция *_SetData_*, интерфейса *IInjectedChannel*, который в свою очередь устанавливает данные в объекте класса *InjectedChannel*, соответствующий определенному инжекторному каналу. Установленные данные необходимо передать в другой класс, за передачу данных отвечает интерфейс *IDataProvider* с функцией *_GetData_*.
+
+.iinjectedchannel.h
+[source, cpp]
+----
+#ifndef IINJECTEDCHANNEL
+#define IINJECTEDCHANNEL
+
+class IInjectedChannel
+{
+  public:
+    virtual void SetData(std::uint32_t data) = 0;
+};
+
+#endif
+----
+
+.idataprovider.h
+[source, cpp]
+----
+#ifndef IDATAPROVIDER
+#define IDATAPROVIDER
+
+class IDataProvider
+{
+  public:
+    virtual std::uint32_t GetData() const = 0;
+};
+
+#endif
+----
+
+Класс InjectedChannel, разбит на заголовочный файл .h и файл исходного кода .cpp.
+
+.injectedchannel.h
+[source, cpp]
+----
+#ifndef INJECTEDCHANNEL
+#define INJECTEDCHANNEL
+
+#include "iinjectedchannel.h" // for IInjectedChannel 
+#include "idataprovider.h" // for IDataProvider
+
+class InjectedChannel : public IInjectedChannel, IDataProvider
+{
+  public:
+    void SetData(std::uint32_t data);
+    
+    std::uint32_t GetData();
+  private:
+    std::uint32_t mData;
+};
+
+#endif
+----
+
+.injectedchannel.cpp
+[source, cpp]
+----
+#include "injectedchannel.h" // for InjectedChannel
+
+void InjectedChannel::SetData(std::uint32_t data) override
+{
+  mData = data;
+}
+
+std::uint32_t InjectedChannel::GetData() const override
+{
+  return mData;
+}
+----
+
 == HeatCalculation
 
 .UML диаграмма группы HeatCalculation
@@ -92,11 +169,6 @@ image::UML_Diag_HeatCalculation.jpg[]
 
 .UML диаграмма группы MeasurementTemperatureResistance
 image::UML_Diag_MeasurementTemperatureResistance.jpg[]
-
-== Adc
-
-.UML диаграмма группы Adc
-image::UML_Diag_Adc.jpg[]
 
 == WaterConsumption
 
