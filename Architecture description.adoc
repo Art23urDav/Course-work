@@ -173,6 +173,21 @@ std::uint32_t InjectedChannel::GetData() const
 }
 ----
 
+Часть кода, отвечающая за объявление объектов класса InjectedChannel. 
+
+.main.cpp
+[source, cpp]
+----
+
+InjectedChannel channelResistanceThermometersDirect;
+InjectedChannel channelResistanceThermometersReverse;
+InjectedChannel channelPressureMeter1;
+InjectedChannel channelPressureMeter2;
+Adc<channelResistanceThermometersDirect, channelResistanceThermometersReverse, channelPressureMeter1, channelPressureMeter2> adc1;
+MeasurementTask measurementTask(adc1);
+
+----
+
 == HeatCalculation
 
 .UML диаграмма группы HeatCalculation
