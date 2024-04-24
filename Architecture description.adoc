@@ -11,11 +11,6 @@ toc::[]
 .UML диаграмма группы MeasurementTask
 image::UML_Diag_MeasurementTask.jpg[]
 
-=== Связь MeasurementTask с Adc
-
-.UML диаграмма MeasurementTask с Adc
-image::MeasurementTask_with_Adc.jpg[]
-
 Система реального времени в классе MeasurementTask вызывает функцию Execute(), в которой расположен бесконечный цикл и уже в нем вызывается функция Update() интерфейса IUpdater, так как класс Adc наследует класс IUpdater,  вызывается функция класса adc, после "засыпает" на 3 мин и цикл повторяется. 
 
 .measurementTask.h
@@ -60,7 +55,13 @@ class IUpdater
 #endif
 ----
 
-Класс adc отвечает за настройку АЦП и вызов функций классов для считывания данных с инжекторных каналов. В классе на данный момент реализован вывод строки в терминале для реализации работы MeasurementTask 
+== Adc
+
+.UML диаграмма группы Adc
+image::UML_Diag_Adc.jpg[]
+
+
+Класс adc отвечает за настройку АЦП и вызов функций классов для считывания данных с инжекторных каналов. В классе на данный момент реализован считывание 4 инжекторных каналов. 
 
 .adc.h
 [source, cpp]
@@ -68,25 +69,36 @@ class IUpdater
 #ifndef ADC
 #define ADC
 
-#include "iUpdater.h"
-#include <iostream> // TODO удалить после настройки класса АЦП
+#include "iUpdater.h" // for IUpdater
+#include "iinjectedchannel.h" // for IInjectedChannel
 
+#include "adc1registers.hpp" // for ADC1
+#include "adccommonregisters.hpp" // for ADC
+
+template<auto& ...injectedChannels>
 class Adc : public IUpdater
 {
 public:
-  void Update() const override
+  void Update() override
   {
-    std::cout << "adc"; // TODO удалить после настройки класса АЦП 
+    
+    ADC1::CR2::JSWSTART::On::Set(); //Start Conversation
+    while(!ADC1::SR::JEOC::ConversionComplete::IsSet())
+    {
+    }
+    
+
+    mInjectedChannels[0]->SetData(ADC1::JDR1::JDATA::Get()); // TODO may go beyond the bounds of the array if you pass a smaller array
+    mInjectedChannels[1]->SetData(ADC1::JDR2::JDATA::Get());
+    mInjectedChannels[2]->SetData(ADC1::JDR3::JDATA::Get());
+    mInjectedChannels[3]->SetData(ADC1::JDR4::JDATA::Get());
   }
+private:
+    std::array<IInjectedChannel*, sizeof ...(injectedChannels)> mInjectedChannels = {static_cast<IInjectedChannel*> (&injectedChannels)... };
   
 };
 #endif
 ----
-
-== Adc
-
-.UML диаграмма группы Adc
-image::UML_Diag_Adc.jpg[]
 
 Функция *_Update_* класса *Adc* который запускает работу АЦП и считывает данные с инжекторных каналов, далее вызывается функция *_SetData_*, интерфейса *IInjectedChannel*, который в свою очередь устанавливает данные в объекте класса *InjectedChannel*, соответствующий определенному инжекторному каналу. Установленные данные необходимо передать в другой класс, за передачу данных отвечает интерфейс *IDataProvider* с функцией *_GetData_*.
 
@@ -128,15 +140,16 @@ class IDataProvider
 #ifndef INJECTEDCHANNEL
 #define INJECTEDCHANNEL
 
+#include <cstdint> // for std::uint32_t
 #include "iinjectedchannel.h" // for IInjectedChannel 
 #include "idataprovider.h" // for IDataProvider
 
 class InjectedChannel : public IInjectedChannel, IDataProvider
 {
   public:
-    void SetData(std::uint32_t data);
+    void SetData(std::uint32_t data) override;
     
-    std::uint32_t GetData();
+    std::uint32_t GetData() const override;
   private:
     std::uint32_t mData;
 };
@@ -149,12 +162,12 @@ class InjectedChannel : public IInjectedChannel, IDataProvider
 ----
 #include "injectedchannel.h" // for InjectedChannel
 
-void InjectedChannel::SetData(std::uint32_t data) override
+void InjectedChannel::SetData(std::uint32_t data)
 {
   mData = data;
 }
 
-std::uint32_t InjectedChannel::GetData() const override
+std::uint32_t InjectedChannel::GetData() const
 {
   return mData;
 }
