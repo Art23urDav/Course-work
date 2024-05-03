@@ -3,7 +3,7 @@
 void InjectedChannel::SetData(std::uint32_t data)
 {
   mData = data;
-  mNotifare.NotifyDataArrived();
+  mNotifier.NotifyDataArrived();
 }
 
 std::uint32_t InjectedChannel::GetData() const
