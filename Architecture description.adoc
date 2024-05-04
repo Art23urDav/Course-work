@@ -132,7 +132,7 @@ class IDataProvider
 #endif
 ----
 
-Класс InjectedChannel, разбит на заголовочный файл .h и файл исходного кода .cpp.
+Класс *InjectedChannel*, разбит на заголовочный файл .h и файл исходного кода .cpp.
 
 .injectedchannel.h
 [source, cpp]
@@ -173,7 +173,7 @@ std::uint32_t InjectedChannel::GetData() const
 }
 ----
 
-Часть кода, отвечающая за объявление объектов класса InjectedChannel. 
+Часть кода, отвечающая за объявление объектов класса *InjectedChannel*. 
 
 .main.cpp
 [source, cpp]
@@ -188,15 +188,135 @@ MeasurementTask measurementTask(adc1);
 
 ----
 
-== HeatCalculation
-
-.UML диаграмма группы HeatCalculation
-image::UML_Diag_HeatCalculation.jpg[]
-
 == MeasurementTemperatureResistance
 
 .UML диаграмма группы MeasurementTemperatureResistance
 image::UML_Diag_MeasurementTemperatureResistance.jpg[]
+
+Вначале создадим интерфейс *IInjectedChannelNotifare* для уведомления класса  *ResistanceThermometers* о том что пришли данные. Класс *ResistanceThermometers*, отвечает за преобразования кода с АЦП с инжекторного канала в температуру, полученного из класса *InjectedChannel* с помощью агрегации интерфейса *IDataProvider*.
+
+.iinjectedchannelnotifare.h
+[source, cpp]
+----
+#ifndef IINJECTEDCHANNELNOTIFARE
+#define IINJECTEDCHANNELNOTIFARE
+
+class IInjectedChannelNotifare
+{
+  public:
+      virtual void NotifyDataArrived() = 0;
+};
+
+#endif
+----
+
+Класс *ResistanceThermometers*, разбит на заголовочный файл .h и файл исходного кода .cpp.
+
+.resistancethermometers.h
+[source, cpp]
+----
+#ifndef RESISTANCETHERMOMETER
+#define RESISTANCETHERMOMETER
+
+#include <cstdint> // for std::uint32_t
+#include "idataprovider.h" // for IDataProvider
+#include "iinjectedchannelnotifier.h" // for IInjectedChannel 
+#include "idataprovider.h" // for IFloatDataProvider
+
+class ResistanceThermometer : public IInjectedChannelNotifier, public IFloatDataProvider
+{
+  public:
+    ResistanceThermometer(IDataProvider& dataProvider) : mDataProvider(dataProvider)
+    {
+    }
+    void NotifyDataArrived() override;
+    float GetData() const override;
+  private:
+    IDataProvider& mDataProvider;
+    float mValue = 0.0f;
+    float Calculate(std::uint32_t adcCode);
+    
+};
+
+#endif
+----
+
+.resistancethermometers.cpp
+[source, cpp]
+----
+#include "resistancethermometer.h" //for ResistanceThermometers
+#include <iostream>                   // for std::cout
+
+void ResistanceThermometer::NotifyDataArrived()
+{
+  mValue = Calculate(mDataProvider.GetData());
+  std::cout << mValue << std::endl; // TODO delete 
+}
+
+float ResistanceThermometer::Calculate(std::uint32_t adcCode)
+{
+  return adcCode;
+}
+
+float ResistanceThermometer::GetData() const
+{
+  return mValue;
+}
+----
+
+Изменим injectedchannel.h так чтобы класс мог агрегировать интерфейс *IInjectedChannelNotifare*.
+
+
+.injectedchannel.h
+[source, cpp]
+----
+#ifndef INJECTEDCHANNEL
+#define INJECTEDCHANNEL
+
+#include <cstdint> // for std::uint32_t
+#include "iinjectedchannel.h" // for IInjectedChannel 
+#include "idataprovider.h" // for IDataProvider
+#include "iinjectedchannelnotifare.h" // for IInjectedChannel 
+
+class InjectedChannel : public IInjectedChannel, public IDataProvider
+{
+  public:
+    InjectedChannel(IInjectedChannelNotifare& notifare) : mNotifare(notifare)
+    {
+    }
+    void SetData(std::uint32_t data) override;
+    
+    std::uint32_t GetData() const override;
+  private:
+    std::uint32_t mData;
+    IInjectedChannelNotifare& mNotifare;
+};
+
+#endif
+----
+
+Был добавлен интерфейсный класс *IFloatDataProvider* в файле idataprovider.h для передачи данных типа float из класса *ResistanceThermometer*.
+
+.idataprovider.h
+[source, cpp]
+----
+#ifndef IDATAPROVIDER
+#define IDATAPROVIDER
+
+class IDataProvider
+{
+  public:
+    virtual std::uint32_t GetData() const = 0;
+};
+
+class IFloatDataProvider 
+{
+  public:
+    virtual float GetData() const = 0;
+};
+
+#endif
+----
 
 == WaterConsumption
 

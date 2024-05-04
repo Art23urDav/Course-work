@@ -3,7 +3,7 @@
 
 #include "thread.hpp" //For OsWrapper::Thread
 
-class MeasurementTask : public OsWrapper::Thread<128>
+class MeasurementTask : public OsWrapper::Thread<512>
 {
   public:
     MeasurementTask(IUpdater& adc) : _adc(adc){}
