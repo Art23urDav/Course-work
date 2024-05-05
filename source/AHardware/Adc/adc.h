@@ -18,8 +18,8 @@ public:
     while(!ADC1::SR::JEOC::ConversionComplete::IsSet())
     {
     }
-    
-    auto* jdrRegisterPonter = reinterpret_cast<std::uint32_t*>(0x4001203C);
+    constexpr std::uint32_t jdr1Addr = 0x4001203C;
+    auto* jdrRegisterPonter = reinterpret_cast<std::uint32_t*>(jdr1Addr);
     for (auto& it : mInjectedChannels)
     {
       const auto value = *jdrRegisterPonter;
