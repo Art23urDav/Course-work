@@ -2,32 +2,27 @@
 #define RESISTANCETHERMOMETER
 
 #include <cstdint> // for std::uint32_t
-#include "idataprovider.h" // for IDataProvider
+#include <limits> // std::numeric_limits
+#include "idataprovider.h" // for IDataProvider and IFloatDataProvider
 #include "iinjectedchannelnotifier.h" // for IInjectedChannel 
-#include "idataprovider.h" // for IFloatDataProvider
 
 class ResistanceThermometer : public IInjectedChannelNotifier, public IFloatDataProvider
 {
   public:
-    ResistanceThermometer(IDataProvider& dataProvider) : mDataProvider(dataProvider)
+    ResistanceThermometer(IDataProvider& dataProvider, float gain, float offset) : 
+      mDataProvider(dataProvider), 
+      mGain(gain),
+      mOffset(offset)
     {
     }
     void NotifyDataArrived() override;
     float GetData() const override;
   private:
-    IDataProvider& mDataProvider;
-    std::uint32_t mAdcCode = 0U;
-    float maxAdcCode = 4096.0f;
-    float maxVoltageAdc = 3.0f;
-    float mValue = 0.0f;
     float Calculate(std::uint32_t adcCode);
-    float voltage = 0.0f;
-    float koefK = 0.0f;
-    float koefB = 0.0f;
-    float maxTempResistor = 150.0f; 
-    float minTempResistor = 0.0f; 
-    float maxVoltageResistor = 2.0f; // TODO measure experimentally
-    float minVoltageResistor = 1.0f; // TODO measure experimentally
+    IDataProvider& mDataProvider;
+    float mValue = std::numeric_limits<float>::signaling_NaN();
+    float mGain = std::numeric_limits<float>::signaling_NaN();
+    float mOffset = std::numeric_limits<float>::signaling_NaN();
     
 };
 

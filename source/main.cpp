@@ -73,8 +73,8 @@ extern ResistanceThermometer ResistanceThermometerReverse;
 InjectedChannel channelResistanceThermometerDirect(static_cast<IInjectedChannelNotifier&>(ResistanceThermometerDirect));
 InjectedChannel channelResistanceThermometerReverse(static_cast<IInjectedChannelNotifier&>(ResistanceThermometerReverse));
 
-ResistanceThermometer ResistanceThermometerDirect(static_cast<IDataProvider&>(channelResistanceThermometerDirect));
-ResistanceThermometer ResistanceThermometerReverse(static_cast<IDataProvider&>(channelResistanceThermometerReverse));
+ResistanceThermometer ResistanceThermometerDirect(static_cast<IDataProvider&>(channelResistanceThermometerDirect), 1.0f, 0.0f);
+ResistanceThermometer ResistanceThermometerReverse(static_cast<IDataProvider&>(channelResistanceThermometerReverse), 1.0f, 0.0f);
 
 Adc<channelResistanceThermometerDirect, channelResistanceThermometerReverse> adc1;
 MeasurementTask measurementTask(adc1);

@@ -9,10 +9,7 @@ void ResistanceThermometer::NotifyDataArrived()
 
 float ResistanceThermometer::Calculate(std::uint32_t adcCode)
 {
-  voltage = (maxVoltageAdc * adcCode) / maxAdcCode;
-  koefK = (maxTempResistor - minTempResistor) / (maxVoltageResistor - minVoltageResistor);
-  koefB = maxVoltageResistor - (koefK - maxTempResistor);
-  mValue = koefK * voltage + koefB; 
+  mValue = mGain * static_cast<float>(adcCode) + mOffset; 
   return mValue;
 }
 

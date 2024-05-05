@@ -210,7 +210,7 @@ class IInjectedChannelNotifare
 #endif
 ----
 
-Класс *ResistanceThermometer*, разбит на заголовочный файл .h и файл исходного кода .cpp.
+Класс *ResistanceThermometer*, разбит на заголовочный файл .h и файл исходного кода .cpp. В функции *_Calculate_* производится преобразования кода с АЦП в температуру. В формуле преобразования угловой коеффициент k и коеффициент смещения b задаются в конструктор при объявлении объекта класса.
 
 .resistancethermometer.h
 [source, cpp]
@@ -219,32 +219,27 @@ class IInjectedChannelNotifare
 #define RESISTANCETHERMOMETER
 
 #include <cstdint> // for std::uint32_t
-#include "idataprovider.h" // for IDataProvider
+#include <limits> // std::numeric_limits
+#include "idataprovider.h" // for IDataProvider and IFloatDataProvider
 #include "iinjectedchannelnotifier.h" // for IInjectedChannel 
-#include "idataprovider.h" // for IFloatDataProvider
 
 class ResistanceThermometer : public IInjectedChannelNotifier, public IFloatDataProvider
 {
   public:
-    ResistanceThermometer(IDataProvider& dataProvider) : mDataProvider(dataProvider)
+    ResistanceThermometer(IDataProvider& dataProvider, float gain, float offset) : 
+      mDataProvider(dataProvider), 
+      mGain(gain),
+      mOffset(offset)
     {
     }
     void NotifyDataArrived() override;
     float GetData() const override;
   private:
-    IDataProvider& mDataProvider;
-    std::uint32_t mAdcCode = 0U;
-    float maxAdcCode = 4096.0f;
-    float maxVoltageAdc = 3.0f;
-    float mValue = 0.0f;
     float Calculate(std::uint32_t adcCode);
-    float voltage = 0.0f;
-    float koefK = 0.0f;
-    float koefB = 0.0f;
-    float maxTempResistor = 150.0f; 
-    float minTempResistor = 0.0f; 
-    float maxVoltageResistor = 2.0f; // TODO measure experimentally
-    float minVoltageResistor = 1.0f; // TODO measure experimentally
+    IDataProvider& mDataProvider;
+    float mValue = std::numeric_limits<float>::signaling_NaN();
+    float mGain = std::numeric_limits<float>::signaling_NaN();
+    float mOffset = std::numeric_limits<float>::signaling_NaN();
     
 };
 
@@ -265,10 +260,7 @@ void ResistanceThermometer::NotifyDataArrived()
 
 float ResistanceThermometer::Calculate(std::uint32_t adcCode)
 {
-  voltage = (maxVoltageAdc * adcCode) / maxAdcCode;
-  koefK = (maxTempResistor - minTempResistor) / (maxVoltageResistor - minVoltageResistor);
-  koefB = maxVoltageResistor - (koefK - maxTempResistor);
-  mValue = koefK * voltage + koefB; 
+  mValue = mGain * static_cast<float>(adcCode) + mOffset; 
   return mValue;
 }
 
@@ -330,6 +322,24 @@ class IFloatDataProvider
 };
 
 #endif
+----
+
+Часть кода, отвечающая за объявление объектов классов.
+
+.main.cpp
+[source, cpp]
+----
+extern ResistanceThermometer ResistanceThermometerDirect;
+extern ResistanceThermometer ResistanceThermometerReverse;
+
+InjectedChannel channelResistanceThermometerDirect(static_cast<IInjectedChannelNotifier&>(ResistanceThermometerDirect));
+InjectedChannel channelResistanceThermometerReverse(static_cast<IInjectedChannelNotifier&>(ResistanceThermometerReverse));
+
+ResistanceThermometer ResistanceThermometerDirect(static_cast<IDataProvider&>(channelResistanceThermometerDirect), 1.0f, 0.0f);
+ResistanceThermometer ResistanceThermometerReverse(static_cast<IDataProvider&>(channelResistanceThermometerReverse), 1.0f, 0.0f);
+
+Adc<channelResistanceThermometerDirect, channelResistanceThermometerReverse> adc1;
+MeasurementTask measurementTask(adc1);
 ----
 
 == WaterConsumption
