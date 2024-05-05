@@ -4,16 +4,12 @@
 void ResistanceThermometer::NotifyDataArrived()
 {
   mValue = Calculate(mDataProvider.GetData());
-  std::cout << mValue << std::endl;
+  std::cout << mValue << std::endl; // TODO delete 
 }
 
 float ResistanceThermometer::Calculate(std::uint32_t adcCode)
 {
-  voltage = (maxVoltageAdc * adcCode) / maxAdcCode;
-  koefK = (maxTempResistor - minTempResistor) / (maxVoltageResistor - minVoltageResistor);
-  koefB = maxVoltageResistor - (koefK - maxTempResistor);
-  mValue = koefK * voltage + koefB; 
-  return mValue;
+  return adcCode;
 }
 
 float ResistanceThermometer::GetData() const

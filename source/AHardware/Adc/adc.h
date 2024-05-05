@@ -26,11 +26,6 @@ public:
       jdrRegisterPonter++;
       it->SetData(value);
     }
-    ADC1::SR::JEOC::ConversionComplete::Set();
-    //mInjectedChannels[0]->SetData(ADC1::JDR1::JDATA::Get()); // TODO может ввыйте за пределы массива если передать меньше массив
-    //mInjectedChannels[1]->SetData(ADC1::JDR2::JDATA::Get());
-    //mInjectedChannels[2]->SetData(3);//ADC1::JDR3::JDATA::Get());
-    //mInjectedChannels[3]->SetData(4);//ADC1::JDR4::JDATA::Get());
   }
 private:
     std::array<IInjectedChannel*, sizeof ...(injectedChannels)> mInjectedChannels = {static_cast<IInjectedChannel*> (&injectedChannels)... };
