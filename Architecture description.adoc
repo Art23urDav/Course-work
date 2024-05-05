@@ -179,11 +179,11 @@ std::uint32_t InjectedChannel::GetData() const
 [source, cpp]
 ----
 
-InjectedChannel channelResistanceThermometersDirect;
-InjectedChannel channelResistanceThermometersReverse;
+InjectedChannel channelResistanceThermometerDirect;
+InjectedChannel channelResistanceThermometerReverse;
 InjectedChannel channelPressureMeter1;
 InjectedChannel channelPressureMeter2;
-Adc<channelResistanceThermometersDirect, channelResistanceThermometersReverse, channelPressureMeter1, channelPressureMeter2> adc1;
+Adc<channelResistanceThermometerDirect, channelResistanceThermometerReverse, channelPressureMeter1, channelPressureMeter2> adc1;
 MeasurementTask measurementTask(adc1);
 
 ----
@@ -193,7 +193,7 @@ MeasurementTask measurementTask(adc1);
 .UML диаграмма группы MeasurementTemperatureResistance
 image::UML_Diag_MeasurementTemperatureResistance.jpg[]
 
-Вначале создадим интерфейс *IInjectedChannelNotifare* для уведомления класса  *ResistanceThermometers* о том что пришли данные. Класс *ResistanceThermometers*, отвечает за преобразования кода с АЦП с инжекторного канала в температуру, полученного из класса *InjectedChannel* с помощью агрегации интерфейса *IDataProvider*.
+Вначале создадим интерфейс *IInjectedChannelNotifare* для уведомления класса  *ResistanceThermometer* о том что пришли данные. Класс *ResistanceThermometer*, отвечает за преобразования кода с АЦП с инжекторного канала в температуру, полученного из класса *InjectedChannel* с помощью агрегации интерфейса *IDataProvider*.
 
 .iinjectedchannelnotifare.h
 [source, cpp]
@@ -210,9 +210,9 @@ class IInjectedChannelNotifare
 #endif
 ----
 
-Класс *ResistanceThermometers*, разбит на заголовочный файл .h и файл исходного кода .cpp.
+Класс *ResistanceThermometer*, разбит на заголовочный файл .h и файл исходного кода .cpp.
 
-.resistancethermometers.h
+.resistancethermometer.h
 [source, cpp]
 ----
 #ifndef RESISTANCETHERMOMETER
@@ -233,15 +233,25 @@ class ResistanceThermometer : public IInjectedChannelNotifier, public IFloatData
     float GetData() const override;
   private:
     IDataProvider& mDataProvider;
+    std::uint32_t mAdcCode = 0U;
+    float maxAdcCode = 4096.0f;
+    float maxVoltageAdc = 3.0f;
     float mValue = 0.0f;
     float Calculate(std::uint32_t adcCode);
+    float voltage = 0.0f;
+    float koefK = 0.0f;
+    float koefB = 0.0f;
+    float maxTempResistor = 150.0f; 
+    float minTempResistor = 0.0f; 
+    float maxVoltageResistor = 2.0f; // TODO measure experimentally
+    float minVoltageResistor = 1.0f; // TODO measure experimentally
     
 };
 
 #endif
 ----
 
-.resistancethermometers.cpp
+.resistancethermometer.cpp
 [source, cpp]
 ----
 #include "resistancethermometer.h" //for ResistanceThermometers
@@ -255,7 +265,11 @@ void ResistanceThermometer::NotifyDataArrived()
 
 float ResistanceThermometer::Calculate(std::uint32_t adcCode)
 {
-  return adcCode;
+  voltage = (maxVoltageAdc * adcCode) / maxAdcCode;
+  koefK = (maxTempResistor - minTempResistor) / (maxVoltageResistor - minVoltageResistor);
+  koefB = maxVoltageResistor - (koefK - maxTempResistor);
+  mValue = koefK * voltage + koefB; 
+  return mValue;
 }
 
 float ResistanceThermometer::GetData() const
