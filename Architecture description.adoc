@@ -179,11 +179,11 @@ std::uint32_t InjectedChannel::GetData() const
 [source, cpp]
 ----
 
-InjectedChannel channelResistanceThermometersDirect;
-InjectedChannel channelResistanceThermometersReverse;
+InjectedChannel channelResistanceThermometerDirect;
+InjectedChannel channelResistanceThermometerReverse;
 InjectedChannel channelPressureMeter1;
 InjectedChannel channelPressureMeter2;
-Adc<channelResistanceThermometersDirect, channelResistanceThermometersReverse, channelPressureMeter1, channelPressureMeter2> adc1;
+Adc<channelResistanceThermometerDirect, channelResistanceThermometerReverse, channelPressureMeter1, channelPressureMeter2> adc1;
 MeasurementTask measurementTask(adc1);
 
 ----
@@ -193,7 +193,7 @@ MeasurementTask measurementTask(adc1);
 .UML диаграмма группы MeasurementTemperatureResistance
 image::UML_Diag_MeasurementTemperatureResistance.jpg[]
 
-Вначале создадим интерфейс *IInjectedChannelNotifare* для уведомления класса  *ResistanceThermometers* о том что пришли данные. Класс *ResistanceThermometers*, отвечает за преобразования кода с АЦП с инжекторного канала в температуру, полученного из класса *InjectedChannel* с помощью агрегации интерфейса *IDataProvider*.
+Вначале создадим интерфейс *IInjectedChannelNotifare* для уведомления класса  *ResistanceThermometer* о том что пришли данные. Класс *ResistanceThermometer*, отвечает за преобразования кода с АЦП с инжекторного канала в температуру, полученного из класса *InjectedChannel* с помощью агрегации интерфейса *IDataProvider*.
 
 .iinjectedchannelnotifare.h
 [source, cpp]
@@ -210,38 +210,43 @@ class IInjectedChannelNotifare
 #endif
 ----
 
-Класс *ResistanceThermometers*, разбит на заголовочный файл .h и файл исходного кода .cpp.
+Класс *ResistanceThermometer*, разбит на заголовочный файл .h и файл исходного кода .cpp. В функции *_Calculate_* производится преобразования кода с АЦП в температуру. В формуле преобразования угловой коеффициент k и коеффициент смещения b задаются в конструктор при объявлении объекта класса.
 
-.resistancethermometers.h
+.resistancethermometer.h
 [source, cpp]
 ----
 #ifndef RESISTANCETHERMOMETER
 #define RESISTANCETHERMOMETER
 
 #include <cstdint> // for std::uint32_t
-#include "idataprovider.h" // for IDataProvider
+#include <limits> // std::numeric_limits
+#include "idataprovider.h" // for IDataProvider and IFloatDataProvider
 #include "iinjectedchannelnotifier.h" // for IInjectedChannel 
-#include "idataprovider.h" // for IFloatDataProvider
 
 class ResistanceThermometer : public IInjectedChannelNotifier, public IFloatDataProvider
 {
   public:
-    ResistanceThermometer(IDataProvider& dataProvider) : mDataProvider(dataProvider)
+    ResistanceThermometer(IDataProvider& dataProvider, float gain, float offset) : 
+      mDataProvider(dataProvider), 
+      mGain(gain),
+      mOffset(offset)
     {
     }
     void NotifyDataArrived() override;
     float GetData() const override;
   private:
-    IDataProvider& mDataProvider;
-    float mValue = 0.0f;
     float Calculate(std::uint32_t adcCode);
+    IDataProvider& mDataProvider;
+    float mValue = std::numeric_limits<float>::signaling_NaN();
+    float mGain = std::numeric_limits<float>::signaling_NaN();
+    float mOffset = std::numeric_limits<float>::signaling_NaN();
     
 };
 
 #endif
 ----
 
-.resistancethermometers.cpp
+.resistancethermometer.cpp
 [source, cpp]
 ----
 #include "resistancethermometer.h" //for ResistanceThermometers
@@ -255,7 +260,8 @@ void ResistanceThermometer::NotifyDataArrived()
 
 float ResistanceThermometer::Calculate(std::uint32_t adcCode)
 {
-  return adcCode;
+  mValue = mGain * static_cast<float>(adcCode) + mOffset; 
+  return mValue;
 }
 
 float ResistanceThermometer::GetData() const
@@ -316,6 +322,24 @@ class IFloatDataProvider
 };
 
 #endif
+----
+
+Часть кода, отвечающая за объявление объектов классов.
+
+.main.cpp
+[source, cpp]
+----
+extern ResistanceThermometer ResistanceThermometerDirect;
+extern ResistanceThermometer ResistanceThermometerReverse;
+
+InjectedChannel channelResistanceThermometerDirect(static_cast<IInjectedChannelNotifier&>(ResistanceThermometerDirect));
+InjectedChannel channelResistanceThermometerReverse(static_cast<IInjectedChannelNotifier&>(ResistanceThermometerReverse));
+
+ResistanceThermometer ResistanceThermometerDirect(static_cast<IDataProvider&>(channelResistanceThermometerDirect), 1.0f, 0.0f);
+ResistanceThermometer ResistanceThermometerReverse(static_cast<IDataProvider&>(channelResistanceThermometerReverse), 1.0f, 0.0f);
+
+Adc<channelResistanceThermometerDirect, channelResistanceThermometerReverse> adc1;
+MeasurementTask measurementTask(adc1);
 ----
 
 == WaterConsumption

@@ -2,22 +2,27 @@
 #define RESISTANCETHERMOMETER
 
 #include <cstdint> // for std::uint32_t
-#include "idataprovider.h" // for IDataProvider
+#include <limits> // std::numeric_limits
+#include "idataprovider.h" // for IDataProvider and IFloatDataProvider
 #include "iinjectedchannelnotifier.h" // for IInjectedChannel 
-#include "idataprovider.h" // for IFloatDataProvider
 
 class ResistanceThermometer : public IInjectedChannelNotifier, public IFloatDataProvider
 {
   public:
-    ResistanceThermometer(IDataProvider& dataProvider) : mDataProvider(dataProvider)
+    ResistanceThermometer(IDataProvider& dataProvider, float gain, float offset) : 
+      mDataProvider(dataProvider), 
+      mGain(gain),
+      mOffset(offset)
     {
     }
     void NotifyDataArrived() override;
     float GetData() const override;
   private:
+    float Calculate(std::uint32_t adcCode) const;
     IDataProvider& mDataProvider;
-    float mValue = 0.0f;
-    float Calculate(std::uint32_t adcCode);
+    float mValue = std::numeric_limits<float>::signaling_NaN();
+    const float mGain;
+    const float mOffset;
     
 };
 

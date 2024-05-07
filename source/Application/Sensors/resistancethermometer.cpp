@@ -7,9 +7,9 @@ void ResistanceThermometer::NotifyDataArrived()
   std::cout << mValue << std::endl; // TODO delete 
 }
 
-float ResistanceThermometer::Calculate(std::uint32_t adcCode)
+float ResistanceThermometer::Calculate(std::uint32_t adcCode) const 
 {
-  return adcCode;
+  return mGain * static_cast<float>(adcCode) + mOffset;
 }
 
 float ResistanceThermometer::GetData() const
