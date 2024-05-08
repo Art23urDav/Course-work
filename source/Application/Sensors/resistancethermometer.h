@@ -18,11 +18,11 @@ class ResistanceThermometer : public IInjectedChannelNotifier, public IFloatData
     void NotifyDataArrived() override;
     float GetData() const override;
   private:
-    float Calculate(std::uint32_t adcCode);
+    float Calculate(std::uint32_t adcCode) const;
     IDataProvider& mDataProvider;
     float mValue = std::numeric_limits<float>::signaling_NaN();
-    float mGain = std::numeric_limits<float>::signaling_NaN();
-    float mOffset = std::numeric_limits<float>::signaling_NaN();
+    const float mGain;
+    const float mOffset;
     
 };
 
