@@ -11,7 +11,10 @@ toc::[]
 .UML диаграмма группы MeasurementTask
 image::UML_Diag_MeasurementTask.jpg[]
 
-Система реального времени в классе MeasurementTask вызывает функцию Execute(), в которой расположен бесконечный цикл и уже в нем вызывается функция Update() интерфейса IUpdater, так как класс Adc наследует класс IUpdater,  вызывается функция класса adc, после "засыпает" на 3 мин и цикл повторяется. 
+Класс *MeasurementTask* содержит функции *_Execute_*, в которой расположен бесконечный цикл, *_CleanCheck_*, который возвращает значение флага отчистки и *_ResetCleanChecker_*, который обнуляет значение флага отчистки. Класс также имеет приватную функцию *_UpdateCleanFlag_*, которая контролирует момент выставления флага об отчистке данных. +
+Система реального времени вызывает функцию *_Execute_*, в бесконечном цикле сначала вызывается функция *_Update_* классов *Adc* и *WaterConsumption*, при этом для *WaterConsumption* два раза для двух объектов класса, далее *_UpdateCleanFlag_*, а после переходит в режим ожидания на 3 мин. +
+В функции *_UpdateCleanFlag_* переменная _mCounter_ увеличивается на единицу. Далее производится сравнение _mCounter_ с переменной _oneHourCounts_, где _oneHourCounts_ отношение количества мс в одном часе к периоду ожидания в мс, если они равны _mCounter_ обнуляется и выставляется флаг _mIsCleanNeeded_ сигнализирующий о необходимости об отчистке данных. +
+Функция *_CleanCheck_* возвращает состояние флага _mIsCleanNeeded_, а функция *_ResetCleanChecker_* его обнуляет. Вызывает их класс *WaterConsumption*.
 
 .measurementTask.h
 [source, cpp]
@@ -19,22 +22,55 @@ image::UML_Diag_MeasurementTask.jpg[]
 #ifndef MEASUREMENTTASK
 #define MEASUREMENTTASK
 
+#include <cstdint> // for std::uint8_t
+#include <chrono> // for 'ms' literal
 #include "thread.hpp" //For OsWrapper::Thread
+#include "icleantracker.h" // for ICleanTracker
 
-class MeasurementTask : public OsWrapper::Thread<128>
+class MeasurementTask : public OsWrapper::Thread<512>, public ICleanTracker
 {
   public:
-    MeasurementTask(IUpdater& adc) : _adc(adc){}
+    MeasurementTask(IUpdater& adc, IUpdater& waterConsumptionDirect, IUpdater& waterConsumptionReverse) : 
+      mAdc(adc),
+      mWaterConsumptionDirect(waterConsumptionDirect),
+      mWaterConsumptionReverse(waterConsumptionReverse){}
     void Execute() override
     {
       for(;;)
       {
-        _adc.Update();
-        Sleep(180000ms);
+        mAdc.Update();
+        mWaterConsumptionDirect.Update();
+        mWaterConsumptionReverse.Update();
+        UpdateCleanFlag();
+        Sleep(mCalculationPeriod); // TODO ïîìåíÿòü íà 3 ìèí
       }
     }
+    bool CleanCheck() const override
+    {
+      return mIsCleanNeeded;
+    }
+    void ResetCleanChecker() override
+    {
+      mIsCleanNeeded = false;
+    }
 private:
-  IUpdater& _adc;  
+  const std::chrono::milliseconds mCalculationPeriod = 3000ms;
+  const std::uint32_t oneHourCounts = 3600000ms / mCalculationPeriod;
+  IUpdater& mAdc; 
+  IUpdater& mWaterConsumptionDirect;
+  IUpdater& mWaterConsumptionReverse;
+  std::uint8_t mCounter = 0U;
+  bool mIsCleanNeeded = false;
+  void UpdateCleanFlag()
+  {
+    mCounter++;
+    if(mCounter == oneHourCounts) 
+    {
+      mCounter = 0U;
+      mIsCleanNeeded = true;
+    }   
+  }
+  
 };
 
 #endif //MEASUREMENTTASK
@@ -55,13 +91,30 @@ class IUpdater
 #endif
 ----
 
+.icleantracker.h
+[source, cpp]
+----
+#ifndef ICLEANTRACKER
+#define ICLEANTRACKER
+
+class ICleanTracker
+{
+public:
+    virtual bool CleanCheck() const = 0;
+    virtual void ResetCleanChecker() = 0;
+};
+
+#endif
+----
+
+
 == Adc
 
 .UML диаграмма группы Adc
 image::UML_Diag_Adc.jpg[]
 
 
-Класс adc отвечает за настройку АЦП и вызов функций классов для считывания данных с инжекторных каналов. В классе на данный момент реализован считывание 4 инжекторных каналов. 
+Класс *adc* отвечает вызов функций классов для считывания данных с инжекторных каналов. В классе на данный момент реализован считывание 4 инжекторных каналов. 
 
 .adc.h
 [source, cpp]
@@ -344,5 +397,182 @@ MeasurementTask measurementTask(adc1);
 
 == WaterConsumption
 
-.UML диаграмма группы Adc
+.UML диаграмма группы WaterConsumption
 image::UML_Diag_WaterConsumption.jpg[]
+
+Класс *Timer1* с приходом прерывания вызывает функцию *_UpdateNumberPulses_* класса *CountManager*, который подсчитывает количество импульсов.
+
+.timer1.h
+[source, cpp]
+----
+#ifndef TIMER1
+#define TIMER1
+
+#include "tim1registers.hpp"            // for TIMER 1
+#include "countmanager.h"               // for CountManager
+
+class Timer1
+{
+  public:
+    Timer1(CountManager& countManager) : mCountManager(countManager) { }
+    void handler()
+    {
+      if(TIM1::SR::CC1IF::InterruptPending::IsSet())
+      {
+        mCountManager.UpdateNumberPulses();
+      }
+      TIM1::SR::CC1IF::NoInterruptPending::Set();
+    }
+  private:
+    CountManager& mCountManager;
+    std::uint32_t counters = 0U;
+};
+#endif
+----
+
+Создадим класса *CountManager*, который подсчитывает количество импульсов функцией *_UpdateNumberPulses_* и передает их в класс *WaterConsumption* с помощью функции *_GetData_*. При вызове функции *_Clean_* обнуляет количество импульсов. Функцию *_Clean_* вызывает с помощью интерфейса *IClean* класс *WaterConsumption*.
+
+
+.countmanager.h
+[source, cpp]
+----
+#ifndef COUNTMANAGER
+#define COUNTMANAGER
+
+#include <cstdint> // for std::uint32_t
+#include "idataprovider.h" // for IDataProvider
+
+class CountManager : public IDataProvider
+{
+  public:
+    std::uint32_t UpdateNumberPulses();
+    std::uint32_t Clean();
+    std::uint32_t GetData() const override;
+  private:
+    std::uint32_t numberPulses = 0U; 
+};
+#endif
+----
+
+.countmanager.cpp
+[source, cpp]
+----
+#include "countmanager.h"
+
+std::uint32_t CountManager::UpdateNumberPulses()
+{
+  return numberPulses++;
+}
+
+std::uint32_t CountManager::Clean()
+{
+  numberPulses = 0U;
+}
+
+std::uint32_t CountManager::GetData() const
+{
+  return numberPulses;
+}
+----
+
+Создадим класс *WaterConsumption*, который с помощью функции *_Calculate_* подсчитывает массовый расход воды, с помощью данных о количестве импульсов и температуре полученных от агрегированных классов *IDataProvider* и *IFloatDataProvider* соответственно.
+При этом функция *_Calculate_* вызывается фунцией *_Update_*, далее определяется состояние флага с помощью функции *_CleanCheck_*, нужно ли отчистить данные, если да то вызывается функции Clean для отчистки данных и ResetCleanChecker для обнуления флага.
+
+.waterconsumption.h
+[source, cpp]
+----
+#ifndef WATERCONSUMPTION
+#define WATERCONSUMPTION
+
+#include <cstdint> // for std::uint32_t
+#include <limits> // std::numeric_limits
+#include "idataprovider.h" // for IDataProvider and IFloatDataProvider
+#include "icleantracker.h"      // for iCleanTracker
+#include "icleaner.h"           // for ICleaner
+#include "iUpdater.h" // for IUpdater
+
+class WaterConsumption : public IUpdater
+{
+public:
+  WaterConsumption(IDataProvider& dataProvider, IFloatDataProvider& floatDataProvider,
+                   ICleanTracker& iCleanTracker, ICleaner& iCleaner) : 
+      mDataProvider(dataProvider), 
+      mFloatDataProvider(floatDataProvider),
+      mCleanTracker(iCleanTracker),
+      mCleaner(iCleaner)
+  {
+    
+  }
+  void Update() override;
+  const IDataProvider& mDataProvider;
+  const IFloatDataProvider& mFloatDataProvider;
+  ICleanTracker& mCleanTracker;
+  ICleaner& mCleaner;
+  float waterConsumption = std::numeric_limits<float>::signaling_NaN();
+private:
+  float Calculate(std::uint32_t numberPulses, float temp) const;
+  float PulsesPerLiter = 7.5f;
+  float Coefficient1ForWaterDensity = 995.7f;
+  float Coefficient2ForWaterDensity = 0.984f;  
+  float Coefficient3ForWaterDensity = 0.000483f;
+};
+#endif
+----
+
+.waterconsumption.cpp
+[source, cpp]
+----
+#include "waterconsumption.h"
+#include <iostream>                   // for std::cout
+
+void WaterConsumption::Update()
+{
+  waterConsumption = Calculate(mDataProvider.GetData(), mFloatDataProvider.GetData());
+  if(mCleanTracker.CleanCheck())
+  {
+    mCleaner.Clean();
+    mCleanTracker.ResetCleanChecker();
+  }
+  std::cout <<  waterConsumption << std::endl; // TODO delete 
+}
+
+float WaterConsumption::Calculate(std::uint32_t numberPulses, float temp) const
+{
+  return (numberPulses / PulsesPerLiter) * 
+    (Coefficient1ForWaterDensity / (Coefficient2ForWaterDensity + Coefficient3ForWaterDensity * temp));
+}
+----
+
+== Объявление объектов класса в main
+
+.main.cpp
+[source, cpp]
+----
+extern ResistanceThermometer ResistanceThermometerDirect;
+extern ResistanceThermometer ResistanceThermometerReverse;
+
+extern MeasurementTask measurementTask;
+
+InjectedChannel channelResistanceThermometerDirect(static_cast<IInjectedChannelNotifier&>(ResistanceThermometerDirect));
+InjectedChannel channelResistanceThermometerReverse(static_cast<IInjectedChannelNotifier&>(ResistanceThermometerReverse));
+
+ResistanceThermometer ResistanceThermometerDirect(static_cast<IDataProvider&>(channelResistanceThermometerDirect), 1.0f, 0.0f);
+ResistanceThermometer ResistanceThermometerReverse(static_cast<IDataProvider&>(channelResistanceThermometerReverse), 1.0f, 0.0f);
+
+CountManager pulseWaterFlowDirect;
+CountManager pulseWaterFlowReverse;
+
+Timer1 timer1(pulseWaterFlowDirect);
+
+WaterConsumption waterConsumptionDirect(static_cast<IDataProvider&>(pulseWaterFlowDirect), 
+                                   static_cast<IFloatDataProvider&>(ResistanceThermometerDirect),
+                                   static_cast<ICleanTracker&>(measurementTask),
+                                   static_cast<ICleaner&>(pulseWaterFlowDirect));
+WaterConsumption waterConsumptionReverse(static_cast<IDataProvider&>(pulseWaterFlowReverse), 
+                                   static_cast<IFloatDataProvider&>(ResistanceThermometerReverse),
+                                   static_cast<ICleanTracker&>(measurementTask),
+                                   static_cast<ICleaner&>(pulseWaterFlowDirect));
+
+Adc<channelResistanceThermometerDirect, channelResistanceThermometerReverse> adc1;
+MeasurementTask measurementTask(adc1, waterConsumptionDirect, waterConsumptionReverse);
+----
