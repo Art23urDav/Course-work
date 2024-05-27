@@ -4,7 +4,7 @@
 void ResistanceThermometer::NotifyDataArrived()
 {
   mValue = Calculate(mDataProvider.GetData());
-  std::cout << mValue << std::endl; // TODO delete 
+  std::cout <<  mValue << std::endl; // TODO delete 
 }
 
 float ResistanceThermometer::Calculate(std::uint32_t adcCode) const 
