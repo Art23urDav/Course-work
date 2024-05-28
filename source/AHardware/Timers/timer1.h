@@ -7,17 +7,28 @@
 class Timer1
 {
   public:
-    Timer1(CountManager& countManager) : mCountManager(countManager) { }
+    Timer1(CountManager& countManagerDirect, CountManager& countManagerReverse) 
+      : mPulseWaterFlowDirect(countManagerDirect), mPulseWaterFlowReverse(countManagerReverse) { }
     void handler()
     {
-      if(TIM1::SR::CC1IF::InterruptPending::IsSet())
+      if(TIM1::SR::CC2IF::InterruptPending::IsSet() 
+         and TIM1::DIER::CC2IE::Value1::IsSet())
       {
-        mCountManager.UpdateNumberPulses();
+        mPulseWaterFlowDirect.UpdateNumberPulses();
+        TIM1::SR::CC2IF::NoInterruptPending::Set();
       }
-      TIM1::SR::CC1IF::NoInterruptPending::Set();
+      
+      if(TIM1::SR::CC3IF::InterruptPending::IsSet() 
+         and TIM1::DIER::CC3IE::Value1::IsSet())
+      {
+        mPulseWaterFlowReverse.UpdateNumberPulses();
+        TIM1::SR::CC3IF::NoInterruptPending::Set();
+      }
+
     }
   private:
-    CountManager& mCountManager;
+    CountManager& mPulseWaterFlowDirect;
+    CountManager& mPulseWaterFlowReverse;
     std::uint32_t counters = 0U;
 };
 #endif

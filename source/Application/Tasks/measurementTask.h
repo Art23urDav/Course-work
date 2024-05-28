@@ -4,6 +4,7 @@
 #include <cstdint> // for std::uint8_t
 #include <chrono> // for 'ms' literal
 #include "thread.hpp" //For OsWrapper::Thread
+#include "iUpdater.h"      // for IUpdater
 #include "icleantracker.h" // for ICleanTracker
 
 class MeasurementTask : public OsWrapper::Thread<512>, public ICleanTracker
@@ -13,42 +14,18 @@ class MeasurementTask : public OsWrapper::Thread<512>, public ICleanTracker
       mAdc(adc),
       mWaterConsumptionDirect(waterConsumptionDirect),
       mWaterConsumptionReverse(waterConsumptionReverse){}
-    void Execute() override
-    {
-      for(;;)
-      {
-        mAdc.Update();
-        mWaterConsumptionDirect.Update();
-        mWaterConsumptionReverse.Update();
-        UpdateCleanFlag();
-        Sleep(mCalculationPeriod); // TODO поменять на 3 мин
-      }
-    }
-    bool CleanCheck() const override
-    {
-      return mIsCleanNeeded;
-    }
-    void ResetCleanChecker() override
-    {
-      mIsCleanNeeded = false;
-    }
+    void Execute() override;
+    bool CleanCheck() const override;
+    void ResetCleanChecker() override;
 private:
-  const std::chrono::milliseconds mCalculationPeriod = 3000ms;
+  const std::chrono::milliseconds mCalculationPeriod = 3000ms; 
   const std::uint32_t oneHourCounts = 3600000ms / mCalculationPeriod;
   IUpdater& mAdc; 
   IUpdater& mWaterConsumptionDirect;
   IUpdater& mWaterConsumptionReverse;
   std::uint8_t mCounter = 0U;
   bool mIsCleanNeeded = false;
-  void UpdateCleanFlag()
-  {
-    mCounter++;
-    if(mCounter == oneHourCounts) 
-    {
-      mCounter = 0U;
-      mIsCleanNeeded = true;
-    }   
-  }
+  void UpdateCleanFlag();
   
 };
 

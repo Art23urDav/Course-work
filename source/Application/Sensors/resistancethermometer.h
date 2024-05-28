@@ -10,7 +10,7 @@ class ResistanceThermometer : public IInjectedChannelNotifier, public IFloatData
 {
   public:
     ResistanceThermometer(IDataProvider& dataProvider, float gain, float offset) : 
-      mDataProvider(dataProvider), 
+      mAdcCode(dataProvider), 
       mGain(gain),
       mOffset(offset)
     {
@@ -19,7 +19,7 @@ class ResistanceThermometer : public IInjectedChannelNotifier, public IFloatData
     float GetData() const override;
   private:
     float Calculate(std::uint32_t adcCode) const;
-    const IDataProvider& mDataProvider;
+    const IDataProvider& mAdcCode;
     float mValue = std::numeric_limits<float>::signaling_NaN();
     const float mGain;
     const float mOffset;
